@@ -1,0 +1,17 @@
+{
+    "name": "arduino-esp32",
+    "containerEnv": {
+      "GITHUB_TOKEN": "${localEnv:GITHUB_TOKEN}",
+      "GITHUB_USER": "${localEnv:GITHUB_USER}"
+    },
+    "runArgs": ["--name=arduino-esp32"],
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "editor.tabSize": 2
+            },
+            "extensions": []
+        }
+    },
+    "postCreateCommand": "bash init.sh"
+  }
