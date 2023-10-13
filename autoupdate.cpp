@@ -6,9 +6,35 @@ const char* FW_URL_BASE = "http://192.168.1.33:54321/fw/";  // where *.bin and *
 
 
 WiFiClient client;
-extern char* macAddr;
 
-void check_for_remote_update() {
+void cb_start() {
+  Serial.println("Update started");
+}
+
+void cb_progress(int cur, int total) {
+  Serial.printf("Progress: %d%%\n", cur / (total / 100));
+}
+
+void cb_end() {
+  Serial.println("\nUpdate complete");
+}
+
+void cb_error(int err) {
+  Serial.printf("Error[%d]: ", err);
+  if (err == HTTP_UPDATE_NO_UPDATES) {
+    Serial.println("No updates");
+  } else if (err == HTTP_UPDATE_OK) {
+    Serial.println("OK");
+  } else if (err == HTTP_UPDATE_FAILED) {
+    Serial.println("Failed");
+  } else if (err == HTTP_UPDATE_NO_UPDATES) {
+    Serial.println("No updates");
+  } else {
+    Serial.println("Unknown");
+  }
+}
+
+void check_for_remote_update(char* macAddr) {
   String myBaseURL = String(FW_URL_BASE);
   myBaseURL.concat(macAddr);
   String versionURL = myBaseURL;
@@ -16,6 +42,8 @@ void check_for_remote_update() {
 
   HTTPClient httpClient;
   httpClient.begin(client, versionURL);
+  Serial.print("Checking for new firmware version at ");
+  Serial.println(versionURL);
   int httpCode = httpClient.GET();
   if (httpCode == 200) {
     String newFWVersion = httpClient.getString();
@@ -31,6 +59,10 @@ void check_for_remote_update() {
       newFWURL.concat(".bin");
       Serial.print("Preparing to update from ");
       Serial.println(newFWURL);
+      httpUpdate.onStart(cb_start);
+      httpUpdate.onError(cb_error);
+      httpUpdate.onEnd(cb_end);
+      httpUpdate.onProgress(cb_progress);
       t_httpUpdate_return ret = httpUpdate.update(client, newFWURL);
       switch(ret) {
         case HTTP_UPDATE_FAILED:

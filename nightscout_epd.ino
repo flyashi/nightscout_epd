@@ -1,7 +1,16 @@
+
 #include "display.h"
 #include "autoupdate.h"
 #include "nightscout.h"
 #include "arduino_secrets.h"
+#include "kvstore_client.h"
+
+extern const int FW_VERSION;
+
+#include <Preferences.h>
+
+Preferences preferences;
+
 
 int wifi_signal;
 extern const char* FW_URL_BASE;
@@ -38,64 +47,23 @@ void set_date_from_server_date_header(const char* date_header);
 
 
 
-void update_server_battery() {
-  int v = analogRead(35);
-  Serial.println("Updating server with battery level...");
-  String updateURL = String(SECRET_SERVER_BATTERY_UPDATE_URL);
-  updateURL.concat(macAddr);
-  updateURL.concat("&v=");
-  updateURL.concat(v);
-  HTTPClient httpClient;
-  WiFiClient client;
-
-  httpClient.begin(client, updateURL);
-
-  int httpCode = httpClient.GET();
-  Serial.print("Done. Status code = ");
-  Serial.println(httpCode);
-  if (httpCode == 200) {
-    Serial.println(httpClient.getString());
-  }
-}
-void update_server_cache_version() {
-  Serial.println("Updating server with running version...");
-  String updateURL = String(SECRET_SERVER_VERSION_UPDATE_URL);
-  updateURL.concat(macAddr);
-  updateURL.concat("&v=");
-  updateURL.concat(FW_VERSION);
-  HTTPClient httpClient;
-  WiFiClient client;
-
-  httpClient.begin(client, updateURL);
-
-  const char *headerKeys[] = {"Date"};
-  const size_t headerKeysCount = sizeof(headerKeys) / sizeof(headerKeys[0]);
-    httpClient.collectHeaders(headerKeys, headerKeysCount);
-        
-  int httpCode = httpClient.GET();
-  Serial.print("Done. Status code = ");
-  Serial.println(httpCode);
-  if (httpCode == 200) {
-    Serial.println(httpClient.getString());
-
-    String date = httpClient.header("Date");
-    Serial.print("Got Date header: ");
-    Serial.println(date);
-    set_date_from_server_date_header(date.c_str());
-  }
-}
 
 void configModeCallback (WiFiManager *myWiFiManager) {
-  Serial.println("Entered config mode");
+  Serial.println("Entered config mode - wifi failed to connect");
+
+  // decide whether to continue into AP mode, or just sleep and retry in 1min
+  if (rtc_get_reset_reason(0) != 1) {
+    Serial.println("Not a power-on reset, so sleeping for 1min");
+    esp_sleep_enable_timer_wakeup(60*1000000);
+    esp_deep_sleep_start();
+  }
+
   Serial.println(WiFi.softAPIP());
 
   Serial.println(myWiFiManager->getConfigPortalSSID());
   char buf[100];
-  display_init();
-  HelloWorld = buf;
   sprintf(HelloWorld, "AP: %s", myWiFiManager->getConfigPortalSSID().c_str());
-  helloWorld();
-  display_hibernate();
+  fullscreen_message(buf);
 }
 
 uint8_t init_wifi() {
@@ -114,6 +82,7 @@ uint8_t init_wifi() {
   Serial.println(s);
   String s2 = String(FW_URL_BASE);
   s2.concat(macAddr);
+  s2.concat(".");
   s2.concat(FW_VERSION);
   s2.concat(".bin");
   Serial.print("Place the firmware file e.g. here: ");
@@ -121,10 +90,10 @@ uint8_t init_wifi() {
 
   wifiManager.setAPCallback(configModeCallback);
 
-  wifiManager.setConfigPortalTimeout(60);
+  //wifiManager.setConfigPortalTimeout(300);
   return wifiManager.autoConnect();
-
 }
+
 void xkcd_434() {
   Serial.println("disabling wifi...");
   WiFi.disconnect();
@@ -135,64 +104,85 @@ void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
   Serial.println("Ready");
-  delay(2000);
+  delay(10);
 
   Serial.println("CPU0 reset reason:");
   print_reset_reason(rtc_get_reset_reason(0));
-  delay(2000);
+  delay(10);
 
   print_time();
-  delay(1000);
+  delay(10);
 
-  Serial.println("creating display");
+  preferences.begin("nightscout_epd", false);
 
-    Serial.println("initting display");
+  if (rtc_get_reset_reason(0) == 1) {
+    preferences.remove("prev_sgv_ts");
 
-  display_init();  
-  Serial.println("hello world'ing");
-  helloWorld();
-  Serial.println("hibernating...");
-  display_hibernate();
-  if (init_wifi()) {
-    char buf[100];
-    sprintf(buf, "%s", macAddr);
-    HelloWorld = buf;
-    display_init();
-    helloWorld();
-    display_hibernate();
-    delay(1000);
-    update_server_cache_version();
-      check_for_remote_update();
-      if (update_nightscout()) {
-        char buf[100];
-        if (sgv_ts != prev_sgv_ts) {
-          if (sgv_delta >= 0) 
-            sprintf(buf, "%d +%d", sgv, sgv_delta);
-          else
-            sprintf(buf, "%d %d", sgv, sgv_delta);
-          HelloWorld = buf;
-  display_init();
-          helloWorld();
-display_hibernate();
-
-xkcd_434();
-esp_sleep_enable_timer_wakeup(60*1000000);
-esp_deep_sleep_start();
-        }
-      } else {
-delay(5000);
-ESP.restart();
-      }
-    xkcd_434();
-  } else {
-    char buf[100];
-    sprintf(buf, "Restarting...");
-    HelloWorld = buf;
-    helloWorld();
-    delay(5000);
-    ESP.restart();
+    fullscreen_message("Welcome :)");
   }
-  
+
+  if (init_wifi()) {
+    // char buf[100];
+    // sprintf(buf, "%s", macAddr);
+    // HelloWorld = buf;
+    // display_init();
+    // helloWorld();
+    // display_hibernate();
+    // delay(1000);
+    update_server_cache_version(macAddr);
+    check_for_remote_update(macAddr);
+    update_server_battery(macAddr);
+    if (update_nightscout()) {
+      char buf[100];
+      prev_sgv_ts = preferences.getLong64("prev_sgv_ts", 0);
+      if (sgv_ts != prev_sgv_ts) {
+        Serial.printf("Got new data from nightscout, old ts=%ld new ts=%ld sgv=%d sgv_delta=%d", prev_sgv_ts, sgv_ts, sgv, sgv_delta);
+        if (sgv_delta >= 0) 
+          sprintf(buf, "%d +%d", sgv, sgv_delta);
+        else
+          sprintf(buf, "%d %d", sgv, sgv_delta);
+        char tsbuf[100];
+        time_t now;
+        struct tm timeinfo;
+        //time(&now);
+        now = sgv_ts;
+        localtime_r(&now, &timeinfo);
+
+        strftime(tsbuf, sizeof(tsbuf), "%Y-%m-%d %H:%M:%S", &timeinfo);
+
+        fullscreen_message_subtitle(buf, tsbuf);
+        preferences.putLong64("prev_sgv_ts", sgv_ts);
+        xkcd_434();
+        esp_sleep_enable_timer_wakeup(60*1000000);
+        esp_deep_sleep_start();
+      } else {
+        sprintf(buf, "No new data");
+        // fullscreen_message(buf);
+        xkcd_434();
+        esp_sleep_enable_timer_wakeup(60*1000000);
+        esp_deep_sleep_start();
+      }
+    } else {
+      Serial.println("Could not get data from nightscout. deep sleep for 1 minute.");
+      // delay(5000);
+      // ESP.restart();
+      xkcd_434();
+      esp_sleep_enable_timer_wakeup(60*1000000);
+      esp_deep_sleep_start();
+    }
+  } else {
+    // wifi failed to connect. deep sleep for 1 minute.
+    Serial.println("wifi failed to connect. deep sleep for 1 minute.");
+    // char buf[100];
+    // sprintf(buf, "Restarting...");
+    // HelloWorld = buf;
+    // helloWorld();
+    // delay(5000);
+    // ESP.restart();
+    xkcd_434();
+    esp_sleep_enable_timer_wakeup(60*1000000);
+    esp_deep_sleep_start();
+  }
 }
 
 
@@ -235,17 +225,4 @@ localtime_r(&now, &timeinfo);
 strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
 Serial.print("Time now is: ");
 Serial.println(strftime_buf);
-}
-
-void set_date_from_server_date_header(const char* date_header) {
-	struct tm tm;
-        memset(&tm, 0, sizeof(tm));
-        //char *retp = strptime("Thu, 05 Oct 2023 21:24:40 GMT", "%a, %d %b %Y %H:%M:%S GMT", &tm);
-        char *retp = strptime(date_header, "%a, %d %b %Y %H:%M:%S GMT", &tm);
-	time_t timet = mktime(&tm);
-	timeval tv;
-	tv.tv_sec = timet;
-	tv.tv_usec = 0;
-	settimeofday(&tv, 0);
-
 }
