@@ -12,7 +12,7 @@ void cb_start() {
 }
 
 void cb_progress(int cur, int total) {
-  Serial.printf("Progress: %d%%\n", cur / (total / 100));
+  Serial.printf("Progress: %d%%\r\n", cur / (total / 100));
 }
 
 void cb_end() {
@@ -66,7 +66,7 @@ void check_for_remote_update(char* macAddr) {
       t_httpUpdate_return ret = httpUpdate.update(client, newFWURL);
       switch(ret) {
         case HTTP_UPDATE_FAILED:
-          Serial.printf("HTTP_UPDATE_FAILED: Error %d: %s\n",
+          Serial.printf("HTTP_UPDATE_FAILED: Error %d: %s\r\n",
               httpUpdate.getLastError(),
               httpUpdate.getLastErrorString().c_str());
           break;

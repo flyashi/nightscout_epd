@@ -19,3 +19,4 @@ void fullscreen_message(char *message);
 void display_init();
 void display_hibernate();
 void fullscreen_message_subtitle(char* message, char* subtitle);
+void fullscreen_message_subtitle_header(char* message, char* subtitle, char* header);

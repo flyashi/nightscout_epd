@@ -25,14 +25,9 @@ void set_date_from_server_date_header(const char* date_header) {
 
 }
 
-void update_server_battery(char* macAddr) {
-  // read slowly to avoid noise
-  analogSetClockDiv(255);
-  //int v = analogRead(35);
-  int v = analogReadMilliVolts(35);
-  // raw millivolts is half of actual battery voltage. multiply by two to get actual voltage
-  v = v * 2;
-  Serial.println("Updating server with battery level...");
+void update_server_battery(char* macAddr, int v) {
+
+  Serial.printf("Updating server with battery level v=%d...", v);
   String updateURL = String(SECRET_SERVER_BATTERY_UPDATE_URL);
   updateURL.concat(macAddr);
   updateURL.concat("&v=");

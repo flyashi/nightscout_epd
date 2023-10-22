@@ -25,6 +25,10 @@ void fullscreen_message(char *message) {
 }
 
 void fullscreen_message_subtitle(char* message, char* subtitle) {
+  fullscreen_message_subtitle_header(message, subtitle, "");
+}
+
+void fullscreen_message_subtitle_header(char* message, char* subtitle, char* header) {
   display_init();
   display.setRotation(1);
   //display.setFont(&FreeMonoBold9pt7b);
@@ -44,6 +48,10 @@ void fullscreen_message_subtitle(char* message, char* subtitle) {
   display.getTextBounds(subtitle, 0, 0, &tbx2, &tby2, &tbw2, &tbh2);
   uint16_t x2 = ((display.width() - tbw2) / 2) - tbx2;
   uint16_t y2 = (display.height() - tbh2) - tby2;
+
+    int16_t tbx3, tby3; uint16_t tbw3, tbh3;
+    display.getTextBounds(header, 0, 0, &tbx3, &tby3, &tbw3, &tbh3);
+Serial.printf("DEBUG: tbx3=%d tby3=%d tbw3=%d tbh3=%d\n", tbx3, tby3, tbw3, tbh3);
   do
   {
       display.setFont(&FreeMonoBold24pt7b);
@@ -56,6 +64,8 @@ void fullscreen_message_subtitle(char* message, char* subtitle) {
     display.setCursor(x2, y2);
     display.print(subtitle);
 
+    display.setCursor(0, -tby3);
+    display.print(header);
   }
   while (display.nextPage());
   display_hibernate();

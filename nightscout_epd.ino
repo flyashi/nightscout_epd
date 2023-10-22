@@ -44,9 +44,15 @@ void print_reset_reason(int);
 void print_time();
 void set_date_from_server_date_header(const char* date_header);
 
-
-
-
+int get_battery_mv() {
+  // read slowly to avoid noise
+  analogSetClockDiv(255);
+  //int v = analogRead(35);
+  int v = analogReadMilliVolts(35);
+  // raw millivolts is half of actual battery voltage. multiply by two to get actual voltage
+  v = v * 2;
+  return v;
+}
 
 void configModeCallback (WiFiManager *myWiFiManager) {
   Serial.println("Entered config mode - wifi failed to connect");
@@ -62,7 +68,7 @@ void configModeCallback (WiFiManager *myWiFiManager) {
 
   Serial.println(myWiFiManager->getConfigPortalSSID());
   char buf[100];
-  sprintf(HelloWorld, "AP: %s", myWiFiManager->getConfigPortalSSID().c_str());
+  sprintf(buf, "AP: %s", myWiFiManager->getConfigPortalSSID().c_str());
   fullscreen_message(buf);
 }
 
@@ -131,12 +137,13 @@ void setup() {
     // delay(1000);
     update_server_cache_version(macAddr);
     check_for_remote_update(macAddr);
-    update_server_battery(macAddr);
+    int battery_mv = get_battery_mv();
+    update_server_battery(macAddr, battery_mv);
     if (update_nightscout()) {
       char buf[100];
       prev_sgv_ts = preferences.getLong64("prev_sgv_ts", 0);
-      if (sgv_ts != prev_sgv_ts) {
-        Serial.printf("Got new data from nightscout, old ts=%ld new ts=%ld sgv=%d sgv_delta=%d", prev_sgv_ts, sgv_ts, sgv, sgv_delta);
+      if (sgv_ts != prev_sgv_ts || rtc_get_reset_reason(0) <= 3) {
+        Serial.printf("Got new data from nightscout, or hard/soft reset; old ts=%ld new ts=%ld sgv=%d sgv_delta=%d", prev_sgv_ts, sgv_ts, sgv, sgv_delta);
         if (sgv_delta >= 0) 
           sprintf(buf, "%d +%d", sgv, sgv_delta);
         else
@@ -150,13 +157,18 @@ void setup() {
 
         strftime(tsbuf, sizeof(tsbuf), "%Y-%m-%d %H:%M:%S", &timeinfo);
 
-        fullscreen_message_subtitle(buf, tsbuf);
+        //fullscreen_message_subtitle(buf, tsbuf);
+        char headbuf[100];
+        sprintf(headbuf, "battery: %d", battery_mv);
+        fullscreen_message_subtitle_header(buf, tsbuf, headbuf);
         preferences.putLong64("prev_sgv_ts", sgv_ts);
         xkcd_434();
         esp_sleep_enable_timer_wakeup(60*1000000);
         esp_deep_sleep_start();
       } else {
-        sprintf(buf, "No new data");
+        Serial.printf("No new data from nightscout, and not hard/soft reset; old ts=%ld new ts=%ld sgv=%d sgv_delta=%d\n", prev_sgv_ts, sgv_ts, sgv, sgv_delta);
+
+        //sprintf(buf, "No new data");
         // fullscreen_message(buf);
         xkcd_434();
         esp_sleep_enable_timer_wakeup(60*1000000);
