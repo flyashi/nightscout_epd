@@ -44,6 +44,15 @@ void print_reset_reason(int);
 void print_time();
 void set_date_from_server_date_header(const char* date_header);
 
+bool should_save_config = false;
+
+char nightscout_server[100];
+
+void save_config_callback () {
+  Serial.println("Should save config");
+  should_save_config = true;
+}
+
 int get_battery_mv() {
   // read slowly to avoid noise
   analogSetClockDiv(255);
@@ -96,8 +105,33 @@ uint8_t init_wifi() {
 
   wifiManager.setAPCallback(configModeCallback);
 
+  // assume "preferences.being()" has already been called
+  const char* nightscout_server = preferences.getString("nightscout_server", "").c_str();
+  // id/name, placeholder/prompt, default, length
+  WiFiManagerParameter custom_nightscout_server("NightScout URL", "https://my-nightscout-server.herokuapp.com", nightscout_server, 100);
+  wifiManager.addParameter(&custom_nightscout_server);
+
   //wifiManager.setConfigPortalTimeout(300);
-  return wifiManager.autoConnect();
+  bool connected = wifiManager.autoConnect();
+
+  if (connected) {
+    Serial.println("connected");
+    Serial.println(WiFi.localIP());
+    wifi_signal = WiFi.RSSI();
+    Serial.print("signal strength (RSSI):");
+    Serial.print(wifi_signal);
+    Serial.println(" dBm");
+
+    if (should_save_config) {
+      Serial.println("saving config");
+      strncpy(nightscout_server, custom_nightscout_server.getValue(), 100);
+      preferences.putString("nightscout_server", nightscout_server);
+    }
+    return 1;
+  } else {
+    Serial.println("failed to connect and hit timeout");
+    return 0;
+  }
 }
 
 void xkcd_434() {
