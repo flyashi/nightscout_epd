@@ -1,2 +1,5 @@
 build/
 arduino_secrets.h
+*.version
+*.bin
+.pio
