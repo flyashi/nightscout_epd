@@ -124,7 +124,7 @@ void setup() {
   if (rtc_get_reset_reason(0) == 1) {
     preferences.remove("prev_sgv_ts");
 
-    fullscreen_message("Welcome :)");
+    fullscreen_message("Welcome:)");
   }
 
   if (init_wifi()) {
