@@ -12,8 +12,6 @@ busy: 4
 #include <Fonts/FreeMonoBold24pt7b.h>
 #include <Fonts/FreeMonoBold9pt7b.h>
 
-extern char* HelloWorld;
-
 void display_init() {
     display.init(115200, true, 2, false); // USE THIS for Waveshare boards with "clever" reset circuit, 2ms reset pulse
 }

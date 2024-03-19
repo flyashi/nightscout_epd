@@ -29,10 +29,6 @@ WiFiManager wifiManager;
 uint8_t mac[6];
 char macAddr[14];
 
-//const char HelloWorld[] = "Hello World!";
-char* HelloWorld = "Starting up...";
-
-
 int sgv;
 int sgv_delta;
 long sgv_ts;
@@ -128,13 +124,6 @@ void setup() {
   }
 
   if (init_wifi()) {
-    // char buf[100];
-    // sprintf(buf, "%s", macAddr);
-    // HelloWorld = buf;
-    // display_init();
-    // helloWorld();
-    // display_hibernate();
-    // delay(1000);
     update_server_cache_version(macAddr);
     check_for_remote_update(macAddr);
     int battery_mv = get_battery_mv();
