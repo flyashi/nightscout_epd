@@ -22,8 +22,10 @@ void print_time();
 
 #include <WiFi.h>
 #include <WiFiManager.h>
-WiFiManager wifiManager;
+#if USE_WIFIMANAGER
 
+WiFiManager wifiManager;
+#endif
 
 
 uint8_t mac[6];
@@ -55,6 +57,8 @@ int get_battery_mv() {
 }
 
 void configModeCallback (WiFiManager *myWiFiManager) {
+#if USE_WIFIMANAGER
+
   Serial.println("Entered config mode - wifi failed to connect");
 
 #if ESP32
@@ -74,6 +78,8 @@ void configModeCallback (WiFiManager *myWiFiManager) {
   char buf[100];
   sprintf(buf, "AP: %s", myWiFiManager->getConfigPortalSSID().c_str());
   fullscreen_message(buf);
+#endif
+
 }
 
 uint8_t init_wifi() {
@@ -98,10 +104,21 @@ uint8_t init_wifi() {
   Serial.print("Place the firmware file e.g. here: ");
   Serial.println(s2);
 
+#if USE_WIFIMANAGER
   wifiManager.setAPCallback(configModeCallback);
 
   //wifiManager.setConfigPortalTimeout(300);
   return wifiManager.autoConnect();
+#else
+  WiFi.begin(SECRET_WIFI_SSID, SECRET_WIFI_PSK);
+  int retries = 15;
+  while (WiFi.status() != WL_CONNECTED && retries > 0) {
+    delay(500);
+    Serial.print(".");
+    retries--;
+  }
+  return WiFi.status() == WL_CONNECTED;
+#endif
 }
 
 void xkcd_434() {
