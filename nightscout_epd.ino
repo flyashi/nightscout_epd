@@ -29,10 +29,6 @@ WiFiManager wifiManager;
 uint8_t mac[6];
 char macAddr[14];
 
-//const char HelloWorld[] = "Hello World!";
-char* HelloWorld = "Starting up...";
-
-
 int sgv;
 int sgv_delta;
 long sgv_ts;
@@ -146,7 +142,7 @@ Serial.println("display init");
   if (rtc_get_reset_reason(0) == 1) {
     preferences.remove("prev_sgv_ts");
 
-    fullscreen_message("Welcome :)");
+    fullscreen_message("Welcome:)");
   }
 
 #endif
@@ -164,7 +160,12 @@ Serial.println("display init");
     int battery_mv = get_battery_mv();
     //update_server_battery(macAddr, battery_mv);
 
-    if (update_nightscout()) {
+    bool local_successful = update_nightscout_local(WiFi.gatewayIP().toString());
+    bool remote_successful = false;
+    if (!local_successful) {
+      remote_successful = update_nightscout();
+    }
+    if (local_successful || remote_successful) {
       char buf[100];
       prev_sgv_ts = preferences.getLong64("prev_sgv_ts", 0);
       if (sgv_ts != prev_sgv_ts || 
