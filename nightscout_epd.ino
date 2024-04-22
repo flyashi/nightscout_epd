@@ -34,7 +34,7 @@ int sgv_delta;
 long sgv_ts;
 long prev_sgv_ts;
 boolean UpdateLocalTime();
-#if 0
+#if ESP32
 #include "esp32/rom/rtc.h"
 #elif ESP32S3
 #include "esp_system.h"
@@ -57,13 +57,15 @@ int get_battery_mv() {
 void configModeCallback (WiFiManager *myWiFiManager) {
   Serial.println("Entered config mode - wifi failed to connect");
 
-#if 0
+#if ESP32
   // decide whether to continue into AP mode, or just sleep and retry in 1min
   if (rtc_get_reset_reason(0) != 1) {
     Serial.println("Not a power-on reset, so sleeping for 1min");
     esp_sleep_enable_timer_wakeup(60*1000000);
     esp_deep_sleep_start();
   }
+#else
+  Serial.println("Non-ESP32 not supported for config mode callback");
 #endif
 
   Serial.println(WiFi.softAPIP());
@@ -112,20 +114,24 @@ void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
   Serial.println("Ready");
+#if TEST
   delay(5000);
-#if 0
+#else
+  delay(10);
+#endif
+
+#if ESP32
   Serial.println("CPU0 reset reason:");
-  
   print_reset_reason(rtc_get_reset_reason(0));
   delay(10);
-  #elif ESP32S3
+#elif ESP32S3
   Serial.println("ESP32S3 to be implemented");
-  #else
+#else
   Serial.println("Don't know how to get reset reason");
-  #endif
-
+#endif
   print_time();
   delay(10);
+#if TEST
 Serial.println("display init");
   display_init();
   Serial.println("sleep");
@@ -137,14 +143,16 @@ Serial.println("display init");
         esp_deep_sleep_start();
         Serial.println("did not sleep");
 
+#endif
   preferences.begin("nightscout_epd", false);
-#if 0
+#if ESP32
   if (rtc_get_reset_reason(0) == 1) {
     preferences.remove("prev_sgv_ts");
 
     fullscreen_message("Welcome:)");
   }
-
+#else
+  Serial.println("Non-ESP32 not implemented");
 #endif
   if (init_wifi()) {
     // char buf[100];
