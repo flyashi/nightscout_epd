@@ -14,7 +14,7 @@ Preferences preferences;
 
 int wifi_signal;
 extern const char* FW_URL_BASE;
-
+void print_time();
 #include <Arduino.h>
 
 #include <WiFiClient.h>
@@ -38,7 +38,11 @@ int sgv_delta;
 long sgv_ts;
 long prev_sgv_ts;
 boolean UpdateLocalTime();
+#if 0
 #include "esp32/rom/rtc.h"
+#elif ESP32S3
+#include "esp_system.h"
+#endif
 
 void print_reset_reason(int);
 void print_time();
@@ -57,12 +61,14 @@ int get_battery_mv() {
 void configModeCallback (WiFiManager *myWiFiManager) {
   Serial.println("Entered config mode - wifi failed to connect");
 
+#if 0
   // decide whether to continue into AP mode, or just sleep and retry in 1min
   if (rtc_get_reset_reason(0) != 1) {
     Serial.println("Not a power-on reset, so sleeping for 1min");
     esp_sleep_enable_timer_wakeup(60*1000000);
     esp_deep_sleep_start();
   }
+#endif
 
   Serial.println(WiFi.softAPIP());
 
@@ -110,23 +116,40 @@ void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
   Serial.println("Ready");
-  delay(10);
-
+  delay(5000);
+#if 0
   Serial.println("CPU0 reset reason:");
+  
   print_reset_reason(rtc_get_reset_reason(0));
   delay(10);
+  #elif ESP32S3
+  Serial.println("ESP32S3 to be implemented");
+  #else
+  Serial.println("Don't know how to get reset reason");
+  #endif
 
   print_time();
   delay(10);
+Serial.println("display init");
+  display_init();
+  Serial.println("sleep");
+  sleep(1000);
+  Serial.println("display hibernate");
+  display_hibernate();
+  Serial.println("set sleep timer and deep sleep");
+          esp_sleep_enable_timer_wakeup(5*1000000);
+        esp_deep_sleep_start();
+        Serial.println("did not sleep");
 
   preferences.begin("nightscout_epd", false);
-
+#if 0
   if (rtc_get_reset_reason(0) == 1) {
     preferences.remove("prev_sgv_ts");
 
     fullscreen_message("Welcome :)");
   }
 
+#endif
   if (init_wifi()) {
     // char buf[100];
     // sprintf(buf, "%s", macAddr);
@@ -135,14 +158,17 @@ void setup() {
     // helloWorld();
     // display_hibernate();
     // delay(1000);
-    update_server_cache_version(macAddr);
-    check_for_remote_update(macAddr);
+
+    //update_server_cache_version(macAddr);
+    //check_for_remote_update(macAddr);
     int battery_mv = get_battery_mv();
-    update_server_battery(macAddr, battery_mv);
+    //update_server_battery(macAddr, battery_mv);
+
     if (update_nightscout()) {
       char buf[100];
       prev_sgv_ts = preferences.getLong64("prev_sgv_ts", 0);
-      if (sgv_ts != prev_sgv_ts || rtc_get_reset_reason(0) <= 3) {
+      if (sgv_ts != prev_sgv_ts || 
+      /* rtc_get_reset_reason(0) <= 3 */0) {
         Serial.printf("Got new data from nightscout, or hard/soft reset; old ts=%ld new ts=%ld sgv=%d sgv_delta=%d", prev_sgv_ts, sgv_ts, sgv, sgv_delta);
         if (sgv_delta >= 0) 
           sprintf(buf, "%d +%d", sgv, sgv_delta);
