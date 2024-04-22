@@ -1,9 +1,6 @@
 
 #include <Arduino.h>
 
-#if 0
-#include "esp32/rom/rtc.h"
-#endif
 #include <HTTPClient.h>
 #include <WiFiClient.h>
 #include <WiFi.h>

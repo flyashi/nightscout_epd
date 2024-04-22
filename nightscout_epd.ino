@@ -21,9 +21,10 @@ void print_time();
 #include <HTTPClient.h>
 
 #include <WiFi.h>
+#if USE_WIFIMANAGER
 #include <WiFiManager.h>
 WiFiManager wifiManager;
-
+#endif
 
 
 uint8_t mac[6];
@@ -34,7 +35,7 @@ int sgv_delta;
 long sgv_ts;
 long prev_sgv_ts;
 boolean UpdateLocalTime();
-#if 0
+#if ESP32
 #include "esp32/rom/rtc.h"
 #elif ESP32S3
 #include "esp_system.h"
@@ -54,6 +55,8 @@ int get_battery_mv() {
   return v;
 }
 
+#if 0 //USE_WIFIMANAGER
+/*
 void configModeCallback (WiFiManager *myWiFiManager) {
   Serial.println("Entered config mode - wifi failed to connect");
 
@@ -73,6 +76,8 @@ void configModeCallback (WiFiManager *myWiFiManager) {
   sprintf(buf, "AP: %s", myWiFiManager->getConfigPortalSSID().c_str());
   fullscreen_message(buf);
 }
+*/
+#endif
 
 uint8_t init_wifi() {
   WiFi.macAddress(mac);
@@ -96,10 +101,19 @@ uint8_t init_wifi() {
   Serial.print("Place the firmware file e.g. here: ");
   Serial.println(s2);
 
-  wifiManager.setAPCallback(configModeCallback);
+  //wifiManager.setAPCallback(configModeCallback);
 
   //wifiManager.setConfigPortalTimeout(300);
-  return wifiManager.autoConnect();
+  //return wifiManager.autoConnect();
+  WiFi.begin(SECRET_WIFI_SSID, SECRET_WIFI_PSK);
+  int tries = 5;
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+    tries--;
+    if (tries == 0) return false;
+  }
+  return true;
 }
 
 void xkcd_434() {
@@ -113,7 +127,7 @@ void setup() {
   Serial.begin(115200);
   Serial.println("Ready");
   delay(5000);
-#if 0
+#if ESP32
   Serial.println("CPU0 reset reason:");
   
   print_reset_reason(rtc_get_reset_reason(0));
@@ -138,13 +152,16 @@ Serial.println("display init");
         Serial.println("did not sleep");
 
   preferences.begin("nightscout_epd", false);
-#if 0
+#if ESP32
   if (rtc_get_reset_reason(0) == 1) {
     preferences.remove("prev_sgv_ts");
 
     fullscreen_message("Welcome:)");
   }
-
+#elif ESP32S3
+  Serial.println("Do be implemented");
+#else
+  Serial.println("What type of chip is this");
 #endif
   if (init_wifi()) {
     // char buf[100];
