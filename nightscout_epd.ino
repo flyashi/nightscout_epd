@@ -110,6 +110,17 @@ uint8_t init_wifi() {
   //wifiManager.setConfigPortalTimeout(300);
   return wifiManager.autoConnect();
 #else
+  // in case of hidden SSID on channel 13
+  // https://github.com/espressif/esp-idf/issues/2989#issuecomment-459941899
+  // linked from
+  // https://github.com/espressif/arduino-esp32/issues/3961#issuecomment-624740732
+  wifi_country_t country = {
+    .cc = "CN",
+    .schan = 1,
+    .nchan = 13,
+    .policy = WIFI_COUNTRY_POLICY_MANUAL,
+  };
+  esp_wifi_set_country(&country);
   WiFi.begin(SECRET_WIFI_SSID, SECRET_WIFI_PSK);
   int retries = 15;
   while (WiFi.status() != WL_CONNECTED && retries > 0) {
