@@ -106,7 +106,7 @@ uint8_t init_wifi() {
   //wifiManager.setConfigPortalTimeout(300);
   //return wifiManager.autoConnect();
   WiFi.begin(SECRET_WIFI_SSID, SECRET_WIFI_PSK);
-  int tries = 5;
+  int tries = 15;
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
@@ -164,6 +164,7 @@ Serial.println("display init");
   Serial.println("What type of chip is this");
 #endif
   if (init_wifi()) {
+    Serial.println("wifi connected. going to load data from nightscout");
     // char buf[100];
     // sprintf(buf, "%s", macAddr);
     // HelloWorld = buf;
