@@ -4,6 +4,7 @@
 #include "nightscout.h"
 #include "arduino_secrets.h"
 #include "kvstore_client.h"
+#include "esp_wifi.h"
 
 extern const int FW_VERSION;
 
@@ -23,6 +24,7 @@ void print_time();
 #include <WiFi.h>
 #if USE_WIFIMANAGER
 #include <WiFiManager.h>
+
 WiFiManager wifiManager;
 #endif
 
@@ -58,15 +60,19 @@ int get_battery_mv() {
 #if 0 //USE_WIFIMANAGER
 /*
 void configModeCallback (WiFiManager *myWiFiManager) {
+#if USE_WIFIMANAGER
+
   Serial.println("Entered config mode - wifi failed to connect");
 
-#if 0
+#if ESP32
   // decide whether to continue into AP mode, or just sleep and retry in 1min
   if (rtc_get_reset_reason(0) != 1) {
     Serial.println("Not a power-on reset, so sleeping for 1min");
     esp_sleep_enable_timer_wakeup(60*1000000);
     esp_deep_sleep_start();
   }
+#else
+  Serial.println("Non-ESP32 not supported for config mode callback");
 #endif
 
   Serial.println(WiFi.softAPIP());
@@ -75,6 +81,8 @@ void configModeCallback (WiFiManager *myWiFiManager) {
   char buf[100];
   sprintf(buf, "AP: %s", myWiFiManager->getConfigPortalSSID().c_str());
   fullscreen_message(buf);
+#endif
+
 }
 */
 #endif
@@ -101,19 +109,33 @@ uint8_t init_wifi() {
   Serial.print("Place the firmware file e.g. here: ");
   Serial.println(s2);
 
-  //wifiManager.setAPCallback(configModeCallback);
+#if USE_WIFIMANAGER
+  wifiManager.setAPCallback(configModeCallback);
 
   //wifiManager.setConfigPortalTimeout(300);
-  //return wifiManager.autoConnect();
+  return wifiManager.autoConnect();
+#else
+  // in case of hidden SSID on channel 13
+  // https://github.com/espressif/esp-idf/issues/2989#issuecomment-459941899
+  // linked from
+  // https://github.com/espressif/arduino-esp32/issues/3961#issuecomment-624740732
+  wifi_country_t country = {
+    .cc = "CN",
+    .schan = 1,
+    .nchan = 13,
+    .policy = WIFI_COUNTRY_POLICY_MANUAL,
+  };
+  esp_wifi_start();
+  esp_wifi_set_country(&country);
   WiFi.begin(SECRET_WIFI_SSID, SECRET_WIFI_PSK);
-  int tries = 15;
-  while (WiFi.status() != WL_CONNECTED) {
+  int retries = 15;
+  while (WiFi.status() != WL_CONNECTED && retries > 0) {
     delay(500);
     Serial.print(".");
-    tries--;
-    if (tries == 0) return false;
+    retries--;
   }
-  return true;
+  return WiFi.status() == WL_CONNECTED;
+#endif
 }
 
 void xkcd_434() {
@@ -126,20 +148,24 @@ void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
   Serial.println("Ready");
+#if TEST
   delay(5000);
+#else
+  delay(10);
+#endif
+
 #if ESP32
   Serial.println("CPU0 reset reason:");
-  
   print_reset_reason(rtc_get_reset_reason(0));
   delay(10);
-  #elif ESP32S3
+#elif ESP32S3
   Serial.println("ESP32S3 to be implemented");
-  #else
+#else
   Serial.println("Don't know how to get reset reason");
-  #endif
-
+#endif
   print_time();
   delay(10);
+#if TEST
 Serial.println("display init");
   display_init();
   Serial.println("sleep");
@@ -151,6 +177,7 @@ Serial.println("display init");
         esp_deep_sleep_start();
         Serial.println("did not sleep");
 
+#endif
   preferences.begin("nightscout_epd", false);
 #if ESP32
   if (rtc_get_reset_reason(0) == 1) {
@@ -161,7 +188,7 @@ Serial.println("display init");
 #elif ESP32S3
   Serial.println("Do be implemented");
 #else
-  Serial.println("What type of chip is this");
+  Serial.println("Non-ESP32 not implemented");
 #endif
   if (init_wifi()) {
     Serial.println("wifi connected. going to load data from nightscout");
