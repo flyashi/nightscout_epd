@@ -4,7 +4,6 @@
 #include "nightscout.h"
 #include "arduino_secrets.h"
 #include "kvstore_client.h"
-#include "esp_wifi.h"
 
 extern const int FW_VERSION;
 
@@ -57,8 +56,7 @@ int get_battery_mv() {
   return v;
 }
 
-#if 0 //USE_WIFIMANAGER
-/*
+// #if USE_WIFIMANAGER
 void configModeCallback (WiFiManager *myWiFiManager) {
 #if USE_WIFIMANAGER
 
@@ -84,8 +82,7 @@ void configModeCallback (WiFiManager *myWiFiManager) {
 #endif
 
 }
-*/
-#endif
+// #endif
 
 uint8_t init_wifi() {
   WiFi.macAddress(mac);
@@ -125,10 +122,17 @@ uint8_t init_wifi() {
     .nchan = 13,
     .policy = WIFI_COUNTRY_POLICY_MANUAL,
   };
-  esp_wifi_start();
-  esp_wifi_set_country(&country);
+  // esp_wifi_start();
+  Serial.println("Connecting to wifi...");
+  Serial.print("SSID: ");
+  Serial.println(SECRET_WIFI_SSID);
+  Serial.print("PSK: ");
+  Serial.println(SECRET_WIFI_PSK);
+  WiFi.mode(WIFI_STA);
   WiFi.begin(SECRET_WIFI_SSID, SECRET_WIFI_PSK);
-  int retries = 15;
+  // esp_wifi_set_country(&country);
+
+  int retries = 35;
   while (WiFi.status() != WL_CONNECTED && retries > 0) {
     delay(500);
     Serial.print(".");
