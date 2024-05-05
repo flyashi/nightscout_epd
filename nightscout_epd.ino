@@ -23,9 +23,10 @@ void print_time();
 #include <WiFi.h>
 #if USE_WIFIMANAGER
 #include <WiFiManager.h>
-
-WiFiManager wifiManager;
+#else
+typedef int WiFiManager;
 #endif
+WiFiManager wifiManager;  // unfortunately always needed :shrug:
 
 
 uint8_t mac[6];
@@ -56,7 +57,6 @@ int get_battery_mv() {
   return v;
 }
 
-// #if USE_WIFIMANAGER
 void configModeCallback (WiFiManager *myWiFiManager) {
 #if USE_WIFIMANAGER
 
@@ -116,12 +116,12 @@ uint8_t init_wifi() {
   // https://github.com/espressif/esp-idf/issues/2989#issuecomment-459941899
   // linked from
   // https://github.com/espressif/arduino-esp32/issues/3961#issuecomment-624740732
-  wifi_country_t country = {
-    .cc = "CN",
-    .schan = 1,
-    .nchan = 13,
-    .policy = WIFI_COUNTRY_POLICY_MANUAL,
-  };
+  // wifi_country_t country = {
+  //   .cc = "CN",
+  //   .schan = 1,
+  //   .nchan = 13,
+  //   .policy = WIFI_COUNTRY_POLICY_MANUAL,
+  // };
   // esp_wifi_start();
   Serial.println("Connecting to wifi...");
   Serial.print("SSID: ");
