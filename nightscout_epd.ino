@@ -50,13 +50,13 @@ void set_date_from_server_date_header(const char* date_header);
 int get_battery_mv() {
   // read slowly to avoid noise
   analogSetClockDiv(255);
-  //int v = analogRead(35);
   int v = analogReadMilliVolts(35);
   // raw millivolts is half of actual battery voltage. multiply by two to get actual voltage
   v = v * 2;
   return v;
 }
 
+// unfortunately this seems to always need to be defined :shrug:
 void configModeCallback (WiFiManager *myWiFiManager) {
 #if USE_WIFIMANAGER
 
@@ -80,9 +80,7 @@ void configModeCallback (WiFiManager *myWiFiManager) {
   sprintf(buf, "AP: %s", myWiFiManager->getConfigPortalSSID().c_str());
   fullscreen_message(buf);
 #endif
-
 }
-// #endif
 
 uint8_t init_wifi() {
   WiFi.macAddress(mac);
@@ -148,15 +146,11 @@ void xkcd_434() {
   WiFi.mode(WIFI_OFF);
   Serial.println("disabled");
 }
+
 void setup() {
-  // put your setup code here, to run once:
   Serial.begin(115200);
   Serial.println("Ready");
-#if TEST
-  delay(5000);
-#else
   delay(10);
-#endif
 
 #if ESP32
   Serial.println("CPU0 reset reason:");
@@ -169,19 +163,6 @@ void setup() {
 #endif
   print_time();
   delay(10);
-#if TEST
-Serial.println("display init");
-  display_init();
-  Serial.println("sleep");
-  sleep(1000);
-  Serial.println("display hibernate");
-  display_hibernate();
-  Serial.println("set sleep timer and deep sleep");
-          esp_sleep_enable_timer_wakeup(5*1000000);
-        esp_deep_sleep_start();
-        Serial.println("did not sleep");
-
-#endif
   preferences.begin("nightscout_epd", false);
 #if ESP32
   if (rtc_get_reset_reason(0) == 1) {
@@ -190,7 +171,7 @@ Serial.println("display init");
     fullscreen_message("Welcome:)");
   }
 #elif ESP32S3
-  Serial.println("Do be implemented");
+  Serial.println("To be implemented");
 #else
   Serial.println("Non-ESP32 not implemented");
 #endif
@@ -261,12 +242,6 @@ Serial.println("display init");
   } else {
     // wifi failed to connect. deep sleep for 1 minute.
     Serial.println("wifi failed to connect. deep sleep for 1 minute.");
-    // char buf[100];
-    // sprintf(buf, "Restarting...");
-    // HelloWorld = buf;
-    // helloWorld();
-    // delay(5000);
-    // ESP.restart();
     xkcd_434();
     esp_sleep_enable_timer_wakeup(60*1000000);
     esp_deep_sleep_start();
