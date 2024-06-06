@@ -21,11 +21,12 @@ void print_time();
 #include <HTTPClient.h>
 
 #include <WiFi.h>
-#include <WiFiManager.h>
 #if USE_WIFIMANAGER
-
-WiFiManager wifiManager;
+#include <WiFiManager.h>
+#else
+typedef int WiFiManager;
 #endif
+WiFiManager wifiManager;  // unfortunately always needed :shrug:
 
 
 uint8_t mac[6];
@@ -49,13 +50,13 @@ void set_date_from_server_date_header(const char* date_header);
 int get_battery_mv() {
   // read slowly to avoid noise
   analogSetClockDiv(255);
-  //int v = analogRead(35);
   int v = analogReadMilliVolts(35);
   // raw millivolts is half of actual battery voltage. multiply by two to get actual voltage
   v = v * 2;
   return v;
 }
 
+// unfortunately this seems to always need to be defined :shrug:
 void configModeCallback (WiFiManager *myWiFiManager) {
 #if USE_WIFIMANAGER
 
@@ -79,7 +80,6 @@ void configModeCallback (WiFiManager *myWiFiManager) {
   sprintf(buf, "AP: %s", myWiFiManager->getConfigPortalSSID().c_str());
   fullscreen_message(buf);
 #endif
-
 }
 
 uint8_t init_wifi() {
@@ -114,15 +114,23 @@ uint8_t init_wifi() {
   // https://github.com/espressif/esp-idf/issues/2989#issuecomment-459941899
   // linked from
   // https://github.com/espressif/arduino-esp32/issues/3961#issuecomment-624740732
-  wifi_country_t country = {
-    .cc = "CN",
-    .schan = 1,
-    .nchan = 13,
-    .policy = WIFI_COUNTRY_POLICY_MANUAL,
-  };
-  esp_wifi_set_country(&country);
+  // wifi_country_t country = {
+  //   .cc = "CN",
+  //   .schan = 1,
+  //   .nchan = 13,
+  //   .policy = WIFI_COUNTRY_POLICY_MANUAL,
+  // };
+  // esp_wifi_start();
+  Serial.println("Connecting to wifi...");
+  Serial.print("SSID: ");
+  Serial.println(SECRET_WIFI_SSID);
+  Serial.print("PSK: ");
+  Serial.println(SECRET_WIFI_PSK);
+  WiFi.mode(WIFI_STA);
   WiFi.begin(SECRET_WIFI_SSID, SECRET_WIFI_PSK);
-  int retries = 15;
+  // esp_wifi_set_country(&country);
+
+  int retries = 35;
   while (WiFi.status() != WL_CONNECTED && retries > 0) {
     delay(500);
     Serial.print(".");
@@ -138,15 +146,11 @@ void xkcd_434() {
   WiFi.mode(WIFI_OFF);
   Serial.println("disabled");
 }
+
 void setup() {
-  // put your setup code here, to run once:
   Serial.begin(115200);
   Serial.println("Ready");
-#if TEST
-  delay(5000);
-#else
   delay(10);
-#endif
 
 #if ESP32
   Serial.println("CPU0 reset reason:");
@@ -159,19 +163,6 @@ void setup() {
 #endif
   print_time();
   delay(10);
-#if TEST
-Serial.println("display init");
-  display_init();
-  Serial.println("sleep");
-  sleep(1000);
-  Serial.println("display hibernate");
-  display_hibernate();
-  Serial.println("set sleep timer and deep sleep");
-          esp_sleep_enable_timer_wakeup(5*1000000);
-        esp_deep_sleep_start();
-        Serial.println("did not sleep");
-
-#endif
   preferences.begin("nightscout_epd", false);
 #if ESP32
   if (rtc_get_reset_reason(0) == 1) {
@@ -179,10 +170,13 @@ Serial.println("display init");
 
     fullscreen_message("Welcome:)");
   }
+#elif ESP32S3
+  Serial.println("To be implemented");
 #else
   Serial.println("Non-ESP32 not implemented");
 #endif
   if (init_wifi()) {
+    Serial.println("wifi connected. going to load data from nightscout");
     // char buf[100];
     // sprintf(buf, "%s", macAddr);
     // HelloWorld = buf;
@@ -248,12 +242,6 @@ Serial.println("display init");
   } else {
     // wifi failed to connect. deep sleep for 1 minute.
     Serial.println("wifi failed to connect. deep sleep for 1 minute.");
-    // char buf[100];
-    // sprintf(buf, "Restarting...");
-    // HelloWorld = buf;
-    // helloWorld();
-    // delay(5000);
-    // ESP.restart();
     xkcd_434();
     esp_sleep_enable_timer_wakeup(60*1000000);
     esp_deep_sleep_start();
