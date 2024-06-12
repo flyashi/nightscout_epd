@@ -1,7 +1,11 @@
 
 #include "display.h"
 #include "autoupdate.h"
+#if USE_BLE
+#include "ble.h"
+#else
 #include "nightscout.h"
+#endif
 #include "arduino_secrets.h"
 #include "kvstore_client.h"
 
@@ -17,10 +21,12 @@ extern const char* FW_URL_BASE;
 void print_time();
 #include <Arduino.h>
 
+#if USE_WIFI
 #include <WiFiClient.h>
 #include <HTTPClient.h>
 
 #include <WiFi.h>
+#endif
 #if USE_WIFIMANAGER
 #include <WiFiManager.h>
 #else
@@ -28,10 +34,10 @@ typedef int WiFiManager;
 #endif
 WiFiManager wifiManager;  // unfortunately always needed :shrug:
 
-
+#if USE_WIFI
 uint8_t mac[6];
 char macAddr[14];
-
+#endif
 int sgv;
 int sgv_delta;
 long sgv_ts;
@@ -82,6 +88,7 @@ void configModeCallback (WiFiManager *myWiFiManager) {
 #endif
 }
 
+#if USE_WIFI
 uint8_t init_wifi() {
   WiFi.macAddress(mac);
   sprintf(macAddr, "%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
@@ -146,6 +153,7 @@ void xkcd_434() {
   WiFi.mode(WIFI_OFF);
   Serial.println("disabled");
 }
+#endif
 
 void setup() {
   Serial.begin(115200);
@@ -175,6 +183,7 @@ void setup() {
 #else
   Serial.println("Non-ESP32 not implemented");
 #endif
+#if USE_WIFI
   if (init_wifi()) {
     Serial.println("wifi connected. going to load data from nightscout");
     // char buf[100];
@@ -246,10 +255,23 @@ void setup() {
     esp_sleep_enable_timer_wakeup(60*1000000);
     esp_deep_sleep_start();
   }
+#endif
+#if USE_BLE
+  ble_setup();
+  delay(60000);
+  ble_stop();
+  Serial.println("BLE stopped. Going to deep sleep for 10 seconds.");
+  Serial.flush();
+  esp_sleep_enable_timer_wakeup(10*1000000);
+  esp_deep_sleep_start();
+#endif
 }
 
 
-void loop() { };
+void loop() { 
+  Serial.println("Entering loop. Should not be here.");
+  delay(10000);
+};
 
 
 void print_reset_reason(int reason)
