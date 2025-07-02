@@ -11,8 +11,10 @@
 #include "display.h"
 
 
-#define SERVICE_UUID        "2bd186c4-daba-4910-8ea3-9a5c3fc482c4"
-#define CHARACTERISTIC_UUID "4184d516-ea0e-46df-a485-4be7bda65b32"
+#define SERVICE_UUID        "726F8BB7-2002-4A36-8F10-ED6172B1D4E0"
+#define CHARACTERISTIC_UUID "F2E0D699-B0FB-4F24-AAAD-A3D823532D71"
+
+int has_connected_client = 0;
 
 struct ns_data {
     uint16_t sgv;
@@ -24,6 +26,11 @@ extern int sgv;
 extern int sgv_delta;
 extern long sgv_ts;
 extern Preferences preferences;
+extern long sleep_request_ms;
+
+
+BLEServer *pServer = NULL;
+uint16_t conn_id = 0;
 
 int ble_get_battery_mv() {
   // read slowly to avoid noise
@@ -58,18 +65,14 @@ void got_new_data() {
         sprintf(headbuf, "battery: %d", battery_mv);
         fullscreen_message_subtitle_header(buf, tsbuf, headbuf);
         preferences.putLong64("prev_sgv_ts", sgv_ts);
-        ble_stop();
-        Serial.println("Entering 60 second deep sleep");
+        Serial.println("Requesting 60 second deep sleep");
         Serial.flush();
-        esp_sleep_enable_timer_wakeup(60*1000000);
-        esp_deep_sleep_start();
+        sleep_request_ms = 60 * 1000;
       } else {
         Serial.printf("No new data from nightscout, and not hard/soft reset; old ts=%ld new ts=%ld sgv=%d sgv_delta=%d\n", prev_sgv_ts, sgv_ts, sgv, sgv_delta);
-        ble_stop();
-        Serial.println("Entering 1 minute deep sleep");
+        Serial.println("Will request 1 minute deep sleep");
         Serial.flush();
-        esp_sleep_enable_timer_wakeup(60*1000000);
-        esp_deep_sleep_start();
+        sleep_request_ms = 60 * 1000;
       }
 }
 
@@ -89,11 +92,25 @@ class MyCallbacks : public BLECharacteristicCallbacks {
     got_new_data();
   }
 };
+
+class MyServerCallbacks : public BLEServerCallbacks {
+  void onConnect(BLEServer *server) {
+    has_connected_client = 1;
+    conn_id = server->getConnId();
+  }
+
+  void onDisconnect(BLEServer *server) {
+    has_connected_client = 0;
+    conn_id = 0;
+  }
+
+};
+
 void ble_setup() {
     Serial.println("Starting BLE work!");
 
     BLEDevice::init("esp32c3-test");
-    BLEServer *pServer = BLEDevice::createServer();
+    pServer = BLEDevice::createServer();
     BLEService *pService = pServer->createService(SERVICE_UUID);
     BLECharacteristic *pCharacteristic =
     pService->createCharacteristic(CHARACTERISTIC_UUID, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE);
@@ -109,11 +126,20 @@ void ble_setup() {
     pAdvertising->setMinPreferred(0x12);
     BLEDevice::startAdvertising();
     Serial.println("Characteristic defined! Now you can read it in your phone!");
+
+    pServer->setCallbacks(new MyServerCallbacks());
 }
 
 void ble_stop() {
   Serial.println("Stopping BLE work!");
+  if (pServer) {
+    Serial.print("Disconnecting conn_id=");
+    Serial.println(conn_id);
+    pServer->disconnect(conn_id);
+    Serial.println("Disconnected.");
+  }
     BLEDevice::deinit(true);
+    Serial.println("Stopped BLE work");
 }
 
 #endif // USE_BLE

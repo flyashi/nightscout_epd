@@ -11,6 +11,12 @@
 
 extern const int FW_VERSION;
 
+#if USE_BLE
+extern int has_connected_client;
+long sleep_request_ms = 0;
+#endif
+
+
 #include <Preferences.h>
 
 Preferences preferences;
@@ -175,8 +181,7 @@ void setup() {
 #if ESP32
   if (rtc_get_reset_reason(0) == 1) {
     preferences.remove("prev_sgv_ts");
-
-    fullscreen_message("Welcome:)");
+    fullscreen_message((char*)"Welcome:)");
   }
 #elif ESP32S3
   Serial.println("To be implemented");
@@ -258,7 +263,12 @@ void setup() {
 #endif
 #if USE_BLE
   ble_setup();
-  delay(60000);
+  delay(500);
+  if (has_connected_client) {
+    Serial.println("Main not sleeping! have active connection");
+    // other code will handle sleeping
+    return;
+  }
   ble_stop();
   Serial.println("BLE stopped. Going to deep sleep for 10 seconds.");
   Serial.flush();
@@ -269,8 +279,18 @@ void setup() {
 
 
 void loop() { 
-  Serial.println("Entering loop. Should not be here.");
-  delay(10000);
+  Serial.println("Entering loop. Should not be here, unless waiting for deep sleep request");
+  if (sleep_request_ms > 0) {
+
+    Serial.print("Got sleep request ms=");
+    Serial.println(sleep_request_ms);
+    Serial.println("Stopping bt (just in case)");
+    ble_stop();
+    Serial.println("Stopped. Sleeping...");
+    esp_sleep_enable_timer_wakeup(sleep_request_ms * 1000);
+    esp_deep_sleep_start();
+  }
+  delay(1000);
 };
 
 

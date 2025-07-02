@@ -19,11 +19,11 @@ void display_hibernate() {
   display.hibernate();
 }
 void fullscreen_message(char *message) {
-  fullscreen_message_subtitle(message, "");
+  fullscreen_message_subtitle(message, (char*)"");
 }
 
 void fullscreen_message_subtitle(char* message, char* subtitle) {
-  fullscreen_message_subtitle_header(message, subtitle, "");
+  fullscreen_message_subtitle_header(message, subtitle, (char*)"");
 }
 
 void fullscreen_message_subtitle_header(char* message, char* subtitle, char* header) {
